@@ -569,7 +569,10 @@ PHP_MINIT_FUNCTION(xdebug)
 		return SUCCESS;
 	}
 
-	xdebug_library_minit();
+	if (XDEBUG_MODE_IS(XDEBUG_MODE_TRACING) || XDEBUG_MODE_IS(XDEBUG_MODE_COVERAGE)) {
+		xdebug_library_minit();
+	}
+
 	xdebug_base_minit(INIT_FUNC_ARGS_PASSTHRU);
 
 	if (XDEBUG_MODE_IS(XDEBUG_MODE_STEP_DEBUG)) {
@@ -590,6 +593,9 @@ PHP_MINIT_FUNCTION(xdebug)
 
 	/* Overload the "include_or_eval" opcode if the mode is 'debug' or 'trace' */
 	if (XDEBUG_MODE_IS(XDEBUG_MODE_STEP_DEBUG) || XDEBUG_MODE_IS(XDEBUG_MODE_TRACING)) {
+		if (XDEBUG_MODE_IS(XDEBUG_MODE_STEP_DEBUG)) {
+			xdebug_set_opcode_multi_handler(ZEND_INCLUDE_OR_EVAL);
+		}		
 		xdebug_register_with_opcode_multi_handler(ZEND_INCLUDE_OR_EVAL, xdebug_include_or_eval_handler);
 	}
 
@@ -823,8 +829,8 @@ ZEND_DLEXPORT void xdebug_zend_shutdown(zend_extension *extension)
 
 ZEND_DLEXPORT void xdebug_init_oparray(zend_op_array *op_array)
 {
-	if (XDEBUG_MODE_IS_OFF()) {
-		return;
+	if (!XDEBUG_MODE_IS(XDEBUG_MODE_COVERAGE)) {
+			return;
 	}
 
 	xdebug_coverage_init_oparray(op_array);
