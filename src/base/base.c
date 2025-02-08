@@ -874,16 +874,26 @@ static bool should_run_user_handler_wrapper(zend_execute_data *execute_data)
 /* We still need this to do "include", "require", and "eval" */
 static void xdebug_execute_ex(zend_execute_data *execute_data)
 {
-	bool run_user_handler = should_run_user_handler_wrapper(execute_data);
+	bool run_user_handler = false;
+	bool debugger_was_disabled = true;
 
-	if (run_user_handler) {
-		xdebug_execute_user_code_begin(execute_data);
+	if ((XG_DBG(debugger_disabled) == 0 || execute_data->func->type == ZEND_EVAL_CODE)) {
+		debugger_was_disabled = false;
+		run_user_handler = should_run_user_handler_wrapper(execute_data);
+		if (run_user_handler) {
+			xdebug_execute_user_code_begin(execute_data);
+		}
 	}
 
 	xdebug_old_execute_ex(execute_data);
 
-	if (run_user_handler) {
-		xdebug_execute_user_code_end(execute_data, execute_data->return_value);
+	if (XG_DBG(debugger_disabled) == 0) {
+		if (debugger_was_disabled) {
+			run_user_handler = should_run_user_handler_wrapper(execute_data);
+		}
+		if (run_user_handler) {
+			xdebug_execute_user_code_end(execute_data, execute_data->return_value);
+		}
 	}
 }
 
@@ -1007,7 +1017,7 @@ static void xdebug_execute_internal(zend_execute_data *execute_data, zval *retur
 {
 	bool run_internal_handler = should_run_internal_handler(execute_data);
 
-	if (run_internal_handler) {
+	if (run_internal_handler && XG_DBG(debugger_disabled) == 0) {
 		xdebug_execute_internal_begin(execute_data);
 	}
 
@@ -1017,7 +1027,7 @@ static void xdebug_execute_internal(zend_execute_data *execute_data, zval *retur
 		execute_internal(execute_data, return_value);
 	}
 
-	if (run_internal_handler) {
+	if (run_internal_handler && XG_DBG(debugger_disabled) == 0) {
 		xdebug_execute_internal_end(execute_data, return_value);
 	}
 }
@@ -1026,6 +1036,9 @@ static void xdebug_execute_internal(zend_execute_data *execute_data, zval *retur
 #if PHP_VERSION_ID >= 80100
 static void xdebug_execute_begin(zend_execute_data *execute_data)
 {
+	if (XG_DBG(debugger_disabled) == 1 && execute_data->func->type != ZEND_EVAL_CODE) {
+		return;
+	}	
 	/* If the stack vector hasn't been initialised yet, we should abort immediately */
 	if (!XG_BASE(stack)) {
 		return;
@@ -1043,6 +1056,9 @@ static void xdebug_execute_begin(zend_execute_data *execute_data)
 
 static void xdebug_execute_end(zend_execute_data *execute_data, zval *retval)
 {
+	if (XG_DBG(debugger_disabled) == 1) {
+		return;
+	}	
 	/* If the stack vector hasn't been initialised yet, we should abort immediately */
 	if (!XG_BASE(stack)) {
 		return;
@@ -1063,6 +1079,63 @@ static zend_observer_fcall_handlers xdebug_observer_init(zend_execute_data *exec
 	return (zend_observer_fcall_handlers){xdebug_execute_begin, xdebug_execute_end};
 }
 #endif
+
+static void add_stack_frame_recursively(zend_execute_data *execute_data)
+{
+	zend_op_array *op_array;
+	int type;
+	function_stack_entry *fse;
+
+	if (execute_data->prev_execute_data) {
+		add_stack_frame_recursively(execute_data->prev_execute_data);
+	}
+	if (execute_data->func) {
+		op_array = &(execute_data->func->op_array);
+		type = ZEND_USER_CODE(execute_data->func->type) ? XDEBUG_USER_DEFINED : XDEBUG_BUILT_IN;
+		fse = xdebug_add_stack_frame(execute_data, op_array, type);
+		fse->execute_data = execute_data->prev_execute_data;
+		if (ZEND_CALL_INFO(execute_data) & ZEND_CALL_HAS_SYMBOL_TABLE) {
+			fse->symbol_table = execute_data->symbol_table;
+		}
+	}
+}
+
+static void xdebug_rebuild_stack()
+{
+	xdebug_vector_empty(XG_BASE(stack));
+
+	add_stack_frame_recursively(EG(current_execute_data));
+}
+
+void xdebug_enable_debugger_if_disabled()
+{
+	if (XG_DBG(debugger_disabled) == 1) {
+		XG_DBG(debugger_disabled) = 0;
+	}	
+}
+
+void xdebug_disable_debugger_if_enabled()
+{
+	if (XG_DBG(debugger_disabled) == 0) {
+		XG_DBG(debugger_disabled) = 1;
+	}
+}
+
+void xdebug_enable_debugger_and_rebuild_stack_if_disabled()
+{
+	if (XG_DBG(debugger_disabled) == 1) {
+		xdebug_enable_debugger_if_disabled();
+		xdebug_rebuild_stack();
+	}
+}
+
+void xdebug_rebuild_stack_if_disabled()
+{
+	if (XG_DBG(debugger_disabled) == 1) {
+		xdebug_rebuild_stack();
+	}
+}
+
 /***************************************************************************/
 
 static void xdebug_base_overloaded_functions_setup(void)
