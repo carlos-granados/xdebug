@@ -38,6 +38,7 @@
 #include "handler_dbgp.h"
 #include "debugger_private.h"
 
+#include "base/base.h"
 #include "coverage/code_coverage.h"
 #include "develop/stack.h"
 #include "lib/compat.h"
@@ -2321,6 +2322,23 @@ static int xdebug_dbgp_cmdloop(xdebug_con *context, int bail)
 
 		free(option);
 	} while (0 == ret);
+
+	if (!XG_DBG(context).do_connect_to_client &&
+		!XG_DBG(context).do_break &&
+		!XG_DBG(context).do_finish &&
+		!XG_DBG(context).do_next &&
+		!XG_DBG(context).do_step &&
+		(!XG_DBG(context).line_breakpoints || XG_DBG(context).line_breakpoints->size == 0) &&
+		(!XG_DBG(context).function_breakpoints || XG_DBG(context).function_breakpoints->size == 0)
+	) {
+		if (XG_DBG(debugger_disabled) == 0) {
+			xdebug_disable_debugger();
+		}
+	} else {
+		if (XG_DBG(debugger_disabled) == 1) {
+			xdebug_enable_debugger();
+		}
+	}
 
 	if (bail && XG_DBG(status) == DBGP_STATUS_STOPPED) {
 		_zend_bailout((char*)__FILE__, __LINE__);
