@@ -6,7 +6,7 @@ on:
         - cron: '0 3 * * 0'
     workflow_dispatch: 
     pull_request:
-        types: [opened, edited, reopened, synchronize]
+        types: [ labeled ]
 
 jobs:
     run-benchmark:
@@ -14,12 +14,7 @@ jobs:
             github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
             (
                 github.event_name == 'pull_request' &&
-                (
-                    startsWith(github.event.pull_request.title, 'perf:') ||
-                    startsWith(github.event.pull_request.title, 'Perf:') ||
-                    startsWith(github.event.pull_request.title, 'Performance:') ||
-                    startsWith(github.event.pull_request.title, 'performance:')
-                )
+                github.event.label.name == 'performance-check'
             )
         runs-on: ubuntu-latest
         strategy:
@@ -98,6 +93,7 @@ jobs:
                 run: |
                     cd symfony-demo
                     export SCRIPT_FILENAME="$(realpath public/index.php)"
+                    export APP_SECRET=APP_SECRET
                     php-cgi public/index.php
                     valgrind --tool=callgrind --dump-instr=yes --callgrind-out-file=callgrind.out -- php-cgi public/index.php
                     mv callgrind.out ..
