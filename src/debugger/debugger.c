@@ -534,6 +534,7 @@ void xdebug_debugger_throw_exception_hook(zend_object *exception, zval *file, zv
 		}
 #endif
 		if (exception_breakpoint_found && xdebug_handle_hit_value(extra_brk_info)) {
+            XG_BASE(statement_handler_enabled) = true;
 			if (
 				!XG_DBG(context).handler->remote_breakpoint(
 					&(XG_DBG(context)), XG_BASE(stack),
@@ -588,6 +589,7 @@ void xdebug_debugger_error_cb(zend_string *error_filename, int error_lineno, int
 		xdebug_hash_find(XG_DBG(context).exception_breakpoints, error_type_str, strlen(error_type_str), (void *) &extra_brk_info) ||
 		xdebug_hash_find(XG_DBG(context).exception_breakpoints, "*", 1, (void *) &extra_brk_info)
 	) {
+        XG_BASE(statement_handler_enabled) = true;
 		if (xdebug_handle_hit_value(extra_brk_info)) {
 			char *type_str = xdebug_sprintf("%ld", type);
 
@@ -1228,6 +1230,8 @@ PHP_FUNCTION(xdebug_break)
 		RETURN_FALSE;
 	}
 
+    XG_BASE(statement_handler_enabled) = true;
+
 	XG_DBG(context).do_break = 1;
 	XG_DBG(context).pending_breakpoint = NULL;
 
@@ -1239,6 +1243,8 @@ PHP_FUNCTION(xdebug_connect_to_client)
 	RETURN_FALSE_IF_MODE_IS_NOT(XDEBUG_MODE_STEP_DEBUG);
 
 	XG_DBG(context).do_connect_to_client = 1;
+
+    XG_BASE(statement_handler_enabled) = true;
 
 	RETURN_TRUE;
 }

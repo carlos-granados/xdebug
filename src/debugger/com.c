@@ -726,6 +726,8 @@ void xdebug_debug_init_if_requested_on_error()
 		return;
 	}
 
+    XG_BASE(statement_handler_enabled) = true;
+
 	if (!xdebug_is_debug_connection_active()) {
 		xdebug_init_debugger();
 	}
@@ -846,6 +848,10 @@ void xdebug_debug_init_if_requested_at_startup(void)
 			xdebug_update_ide_key(found_trigger_value);
 		}
 		xdebug_init_debugger();
+	}
+
+	if (!XG_DBG(remote_connection_enabled) && !XDEBUG_MODE_IS(XDEBUG_MODE_COVERAGE)) {
+        XG_BASE(statement_handler_enabled) = false;
 	}
 
 	if (found_trigger_value) {
