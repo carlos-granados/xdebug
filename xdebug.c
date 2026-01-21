@@ -628,9 +628,6 @@ PHP_RINIT_FUNCTION(xdebug)
 
 	xdebug_init_auto_globals();
 
-	/* Only enabled extended info when it is not disabled */
-	CG(compiler_options) = CG(compiler_options) | ZEND_COMPILE_EXTENDED_STMT;
-
 	xdebug_base_rinit();
 
 	return SUCCESS;

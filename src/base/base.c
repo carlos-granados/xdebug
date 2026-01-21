@@ -1390,6 +1390,11 @@ void xdebug_base_rinit()
 		XG_BASE(statement_handler_enabled) = true;
 	}
 
+    if (XDEBUG_MODE_IS(XDEBUG_MODE_COVERAGE) || XDEBUG_MODE_IS(XDEBUG_MODE_STEP_DEBUG) || XDEBUG_MODE_IS(XDEBUG_MODE_TRACING)) {
+        /* Only enabled extended info when it is not disabled */
+        CG(compiler_options) = CG(compiler_options) | ZEND_COMPILE_EXTENDED_STMT;
+    }
+
 	/* Initialize start time */
 	XG_BASE(start_nanotime) = xdebug_get_nanotime();
 
